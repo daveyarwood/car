@@ -7,7 +7,7 @@
          '[clojure.java.io :as io]
          '[clojure.string :as str])
 
-(def CONFIG-PATH (str (System/getenv "HOME") "/.config/car-stuff/config.edn"))
+(def CONFIG-PATH (str (System/getenv "HOME") "/.config/car/config.edn"))
 
 (defconfig config (io/file CONFIG-PATH))
 
