@@ -1,0 +1,11 @@
+{
+  :regular {
+    "Oil change" 7500
+    "Rotate tires" 6000
+  }
+
+  :last {
+    "Oil change" 7500
+    "Rotate tires" 6000
+  }
+}

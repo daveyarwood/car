@@ -1,0 +1,91 @@
+#!/usr/bin/env boot
+
+(set-env!
+  :dependencies #(into % '[[jarohen/nomad "0.7.0"]]))
+
+(require '[nomad :refer (defconfig)]
+         '[clojure.java.io :as io]
+         '[clojure.string :as str])
+
+(def CONFIG-PATH (str (System/getenv "HOME") "/.config/car-stuff/config.edn"))
+
+(defconfig config (io/file CONFIG-PATH))
+
+(defn get-current-mileage
+  []
+  (print "Enter current odometer reading: ") (flush)
+  (let [mileage (read-line)]
+    (try
+      (Integer/parseInt mileage)
+      (catch NumberFormatException e (do
+                                       (println "That's not a number...")
+                                       (get-current-mileage))))))
+
+(defn set-current-mileage!
+  [mileage]
+  (spit CONFIG-PATH (assoc-in (config) [:current] mileage)))
+
+(defn normalize-task-name
+  [task-name]
+  (str/lower-case (str/replace task-name #"[^\w]" "")))
+
+(defn find-task-by-query
+  "Returns the first task found in config-map that has the same normalized name
+   as task-query. e.g. the query 'oil-change' will find the task 'Oil change'."
+  [task-query config-map]
+  (let [normalized-task-query (normalize-task-name task-query)
+        matches-query? (fn [[task miles]]
+                         (= (normalize-task-name task) normalized-task-query))]
+    (first (filter matches-query? config-map))))
+
+(defn regular-task?
+  [task-query]
+  (and (find-task-by-query task-query (:regular (config)))
+       (find-task-by-query task-query (:last (config)))))
+
+(defn maintenance-schedule
+  "Returns an infinite lazy sequence of all the mile markers when a regular
+   task is due, starting from the last time it was done."
+  [task-query]
+  {:pre [(regular-task? task-query)]}
+  (let [[task-name interval] (find-task-by-query task-query (:regular (config)))
+        [_ last-done]        (find-task-by-query task-query (:last (config)))]
+    (iterate (partial + interval) last-done)))
+
+(defn next-due
+  "Returns the next mile marker when a regular task is due."
+  [task-query current-mileage]
+  {:pre [(regular-task? task-query)]}
+  (first (drop-while #(< % current-mileage) (maintenance-schedule task-query))))
+
+(defn -main
+  ([]
+    (doseq [[task _] (:regular (config))]
+      (-main task)))
+  ([arg]
+    (cond
+      (= arg "current")
+      (println "Current mileage:" (:current (config)))
+
+      (regular-task? arg)
+      (let [[task-name interval] (find-task-by-query arg (:regular (config)))
+            current-mileage (if-let [from-config (:current (config))]
+                              from-config
+                              (get-current-mileage))
+            task-due (next-due arg current-mileage)]
+        (set-current-mileage! current-mileage)
+        (println (str task-name \:) "due at" task-due))
+
+      :else
+      (println "I don't know what" arg "is.")))
+  ([arg1 arg2]
+    (case arg1
+      "current" (let [new-mileage (try
+                                    (Integer/parseInt arg2)
+                                    (catch NumberFormatException e
+                                      (println arg2 "isn't a number...")))]
+                  (set-current-mileage! new-mileage)
+                  (println "Current mileage:" new-mileage))
+      (println "wat?")))
+  ([arg1 arg2 & more]
+    (println "lol wut?")))
