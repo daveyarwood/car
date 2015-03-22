@@ -29,9 +29,12 @@ To find out what value is stored as your current mileage at any time, do this:
     $ car current
     Current mileage: 100000
 
+### Checking when things are due
+
 Tell car the name of a task and it'll tell you when it's due next. Or, just type `car` on its lonesome and it'll tell you when each of the things are due next.
 
     $ car
+    Current mileage: 100000
     Oil change: due at 105000
     Rotate tires: due at 102000
 
@@ -51,3 +54,27 @@ Oh, but wait. I'm past 102,000 and 105,000 now. It's been a really long time and
     Rotate tires: due at 264000
 
 Bingo bango bongo.
+
+### Checking/setting when you last did things
+
+To check the last time that you did something:
+
+    $ car last oil-change
+    Oil change: last done at 97500
+
+To update the last time you did something:
+
+    $ car last oil-change 106000
+    Oil change: last done at 106000
+
+or, if you prefer:
+
+    $ car oil-change 106000
+    Oil change: last done at 106000
+
+To see when everything was last done:
+
+    $ car last
+    Current mileage: 101701
+    Oil change: last done at 97500
+    Rotate tires: last done at 96000

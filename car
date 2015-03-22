@@ -1,29 +1,43 @@
 #!/usr/bin/env boot
 
 (set-env!
-  :dependencies #(into % '[[jarohen/nomad "0.7.0"]]))
+  :dependencies #(into % '[[jarohen/nomad "0.7.0"]
+                           [defun "0.2.0-RC"]]))
 
 (require '[nomad :refer (defconfig)]
          '[clojure.java.io :as io]
-         '[clojure.string :as str])
+         '[clojure.string :as str]
+         '[defun :refer (defun)])
 
 (def CONFIG-PATH (str (System/getenv "HOME") "/.config/car/config.edn"))
 
 (defconfig config (io/file CONFIG-PATH))
 
-(defn get-current-mileage
-  []
-  (print "Enter current odometer reading: ") (flush)
-  (let [mileage (read-line)]
-    (try
-      (Integer/parseInt mileage)
-      (catch NumberFormatException e (do
-                                       (println "That's not a number...")
-                                       (get-current-mileage))))))
-
 (defn set-current-mileage!
   [mileage]
   (spit CONFIG-PATH (assoc-in (config) [:current] mileage)))
+
+(defn parse-number-or-fail
+  [n & {:keys [on-fail]}]
+  (try
+    (Integer/parseInt n)
+    (catch NumberFormatException e
+      (println n "isn't a number...")
+      (if on-fail (on-fail) (System/exit 1)))))
+
+(defn ask-for-current-mileage!
+  []
+  (print "Enter current odometer reading: ") (flush)
+  (let [new-mileage (parse-number-or-fail (read-line)
+                                          :on-fail ask-for-current-mileage!)]
+    (set-current-mileage! new-mileage)
+    new-mileage))
+
+(defn get-current-mileage!
+  []
+  (if-let [from-config (:current (config))]
+    from-config
+    (ask-for-current-mileage!)))
 
 (defn normalize-task-name
   [task-name]
@@ -43,6 +57,10 @@
   (and (find-task-by-query task-query (:regular (config)))
        (find-task-by-query task-query (:last (config)))))
 
+(defn recorded-task?
+  [task-query]
+  (find-task-by-query task-query (:last (config))))
+
 (defn maintenance-schedule
   "Returns an infinite lazy sequence of all the mile markers when a regular
    task is due, starting from the last time it was done."
@@ -58,34 +76,45 @@
   {:pre [(regular-task? task-query)]}
   (first (drop-while #(< % current-mileage) (maintenance-schedule task-query))))
 
-(defn -main
+(defn update-last-done!
+  [task-query mileage]
+  {:pre [(recorded-task? task-query)]}
+  (let [[task-name _] (find-task-by-query task-query (:last (config)))]
+    (spit CONFIG-PATH (assoc-in (config) [:last task-name] mileage))))
+
+(defun -main
   ([]
+    (-main "current")
     (doseq [[task _] (:regular (config))]
       (-main task)))
-  ([arg]
-    (cond
-      (= arg "current")
-      (println "Current mileage:" (:current (config)))
-
-      (regular-task? arg)
-      (let [[task-name interval] (find-task-by-query arg (:regular (config)))
-            current-mileage (if-let [from-config (:current (config))]
-                              from-config
-                              (get-current-mileage))
-            task-due (next-due arg current-mileage)]
-        (set-current-mileage! current-mileage)
-        (println (str task-name \:) "due at" task-due))
-
-      :else
-      (println "I don't know what" arg "is.")))
-  ([arg1 arg2]
-    (case arg1
-      "current" (let [new-mileage (try
-                                    (Integer/parseInt arg2)
-                                    (catch NumberFormatException e
-                                      (println arg2 "isn't a number...")))]
-                  (set-current-mileage! new-mileage)
-                  (println "Current mileage:" new-mileage))
-      (println "wat?")))
-  ([arg1 arg2 & more]
-    (println "lol wut?")))
+  (["current"]
+    (let [current-mileage (get-current-mileage!)]
+      (println "Current mileage:" current-mileage)))
+  (["current" n]
+    (let [new-mileage (parse-number-or-fail n)]
+      (set-current-mileage! new-mileage)
+      (-main "current")))
+  (["last"]
+    (-main "current")
+    (doseq [[task _] (:regular (config))]
+      (-main "last" task)))
+  (["last" (task :guard recorded-task?)]
+    (let [[task-name last-done] (find-task-by-query task (:last (config)))
+          current-mileage (get-current-mileage!)]
+      (println (str task-name \:) "last done at" last-done)))
+  (["last" task] (-main :unknown task))
+  (["last" (task :guard recorded-task?) n]
+    (let [new-mileage (parse-number-or-fail n)]
+      (update-last-done! task new-mileage)
+      (-main "last" task)))
+  ([(task :guard regular-task?)]
+    (let [[task-name interval] (find-task-by-query task (:regular (config)))
+          current-mileage (get-current-mileage!)
+          task-due (next-due task current-mileage)]
+      (set-current-mileage! current-mileage)
+      (println (str task-name \:) "due at" task-due)))
+  ([(task :guard recorded-task?) n]
+    (-main "last" task n))
+  ([:unknown task] (println "I don't know what" task "is."))
+  ([task] (-main :unknown task))
+  ([_ & more] (println "lol wut?")))
