@@ -1,11 +1,6 @@
 {
-  :regular {
-    "Oil change" 7500
-    "Rotate tires" 6000
-  }
-
-  :last {
-    "Oil change" 7500
-    "Rotate tires" 6000
-  }
+  :tasks [
+    {:name "Oil change", :interval 7500, :last-done 97500}
+    {:name "Rotate tires", :interval 6000, :last-done 96000}
+  ]
 }

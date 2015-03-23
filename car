@@ -46,28 +46,27 @@
 (defn find-task-by-query
   "Returns the first task found in config-map that has the same normalized name
    as task-query. e.g. the query 'oil-change' will find the task 'Oil change'."
-  [task-query config-map]
-  (let [normalized-task-query (normalize-task-name task-query)
-        matches-query? (fn [[task miles]]
-                         (= (normalize-task-name task) normalized-task-query))]
-    (first (filter matches-query? config-map))))
+  [task-query]
+  (first (keep-indexed (fn [i {task-name :name :as task-map}]
+                         (when (= (normalize-task-name task-name)
+                                  (normalize-task-name task-query))
+                           (assoc task-map :id i)))
+                       (:tasks (config)))))
 
 (defn regular-task?
   [task-query]
-  (and (find-task-by-query task-query (:regular (config)))
-       (find-task-by-query task-query (:last (config)))))
+  (boolean (get-in (find-task-by-query task-query) [:interval])))
 
 (defn recorded-task?
   [task-query]
-  (find-task-by-query task-query (:last (config))))
+  (boolean (get-in (find-task-by-query task-query) [:last-done])))
 
 (defn maintenance-schedule
   "Returns an infinite lazy sequence of all the mile markers when a regular
    task is due, starting from the last time it was done."
   [task-query]
   {:pre [(regular-task? task-query)]}
-  (let [[task-name interval] (find-task-by-query task-query (:regular (config)))
-        [_ last-done]        (find-task-by-query task-query (:last (config)))]
+  (let [{:keys [interval last-done]} (find-task-by-query task-query)]
     (iterate (partial + interval) last-done)))
 
 (defn next-due
@@ -79,14 +78,14 @@
 (defn update-last-done!
   [task-query mileage]
   {:pre [(recorded-task? task-query)]}
-  (let [[task-name _] (find-task-by-query task-query (:last (config)))]
-    (spit CONFIG-PATH (assoc-in (config) [:last task-name] mileage))))
+  (let [{task-name :name, id :id} (find-task-by-query task-query)]
+    (spit CONFIG-PATH (assoc-in (config) [:tasks id :last-done] mileage))))
 
 (defun -main
   ([]
     (-main "current")
-    (doseq [[task _] (:regular (config))]
-      (-main task)))
+    (doseq [{task-name :name} (filter :interval (:tasks (config)))]
+      (-main task-name)))
   (["current"]
     (let [current-mileage (get-current-mileage!)]
       (println "Current mileage:" current-mileage)))
@@ -96,10 +95,10 @@
       (-main "current")))
   (["last"]
     (-main "current")
-    (doseq [[task _] (:regular (config))]
-      (-main "last" task)))
+    (doseq [{task-name :name} (filter :interval (:tasks (config)))]
+      (-main "last" task-name)))
   (["last" (task :guard recorded-task?)]
-    (let [[task-name last-done] (find-task-by-query task (:last (config)))
+    (let [{task-name :name, last-done :last-done} (find-task-by-query task)
           current-mileage (get-current-mileage!)]
       (println (str task-name \:) "last done at" last-done)))
   (["last" task] (-main :unknown task))
@@ -108,11 +107,13 @@
       (update-last-done! task new-mileage)
       (-main "last" task)))
   ([(task :guard regular-task?)]
-    (let [[task-name interval] (find-task-by-query task (:regular (config)))
+    (let [{:keys [name interval last-done]} (find-task-by-query task)
           current-mileage (get-current-mileage!)
           task-due (next-due task current-mileage)]
       (set-current-mileage! current-mileage)
-      (println (str task-name \:) "due at" task-due)))
+      (println (str name \:) "last done at" (str last-done \,) "due at" task-due)))
+  ([(task :guard recorded-task?)]
+    (-main "last" task))
   ([(task :guard recorded-task?) n]
     (-main "last" task n))
   ([:unknown task] (println "I don't know what" task "is."))

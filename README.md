@@ -35,14 +35,14 @@ Tell car the name of a task and it'll tell you when it's due next. Or, just type
 
     $ car
     Current mileage: 100000
-    Oil change: due at 105000
-    Rotate tires: due at 102000
+    Oil change: last done at 97500, due at 105000
+    Rotate tires: last done at 96000, due at 102000
 
     $ car oil-change
-    Oil change: due at 105000
+    Oil change: last done at 97500, due at 105000
 
     $ car 'ROTATE TIRES'
-    Rotate tires: due at 102000
+    Rotate tires: last done at 96000, due at 102000
 
 Oh, but wait. I'm past 102,000 and 105,000 now. It's been a really long time and I forgot to update my current mileage, I'm actually at 260,000 miles now or something ridiculous. wut do i do?
 
@@ -50,8 +50,9 @@ Oh, but wait. I'm past 102,000 and 105,000 now. It's been a really long time and
     Current mileage: 260000
 
     $ car
-    Oil change: due at 262500
-    Rotate tires: due at 264000
+    Current mileage: 260000
+    Oil change: last done at 97500, due at 262500      # fix me (issue #3)
+    Rotate tires: last done at 96000, due at 264000    # fix me (issue #3)
 
 Bingo bango bongo.
 
