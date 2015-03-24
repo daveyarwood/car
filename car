@@ -61,19 +61,30 @@
   [task-query]
   (boolean (get-in (find-task-by-query task-query) [:last-done])))
 
+(defn overdue?
+  [task-query]
+  {:pre [(and (regular-task? task-query) (recorded-task? task-query))]}
+  (let [{:keys [interval last-done]} (find-task-by-query task-query)
+        current-mileage (get-current-mileage!)
+        time-since-last (- current-mileage last-done)]
+    (>= time-since-last interval)))
+
 (defn maintenance-schedule
   "Returns an infinite lazy sequence of all the mile markers when a regular
    task is due, starting from the last time it was done."
   [task-query]
-  {:pre [(regular-task? task-query)]}
+  {:pre [(and (regular-task? task-query) (recorded-task? task-query))]}
   (let [{:keys [interval last-done]} (find-task-by-query task-query)]
     (iterate (partial + interval) last-done)))
 
 (defn next-due
   "Returns the next mile marker when a regular task is due."
   [task-query current-mileage]
-  {:pre [(regular-task? task-query)]}
-  (first (drop-while #(< % current-mileage) (maintenance-schedule task-query))))
+  {:pre [(and (regular-task? task-query) (recorded-task? task-query))]}
+  (if (overdue? task-query)
+    (let [{:keys [last-done interval]} (find-task-by-query task-query)]
+      (+ last-done interval))
+    (first (drop-while #(<= % current-mileage) (maintenance-schedule task-query)))))
 
 (defn update-last-done!
   [task-query mileage]
@@ -111,7 +122,9 @@
           current-mileage (get-current-mileage!)
           task-due (next-due task current-mileage)]
       (set-current-mileage! current-mileage)
-      (println (str name \:) "last done at" (str last-done \,) "due at" task-due)))
+      (if (overdue? task)
+        (println (str name \:) "last done at" (str last-done \,) "was due at" task-due)
+        (println (str name \:) "last done at" (str last-done \,) "due at" task-due))))
   ([(task :guard recorded-task?)]
     (-main "last" task))
   ([(task :guard recorded-task?) n]
