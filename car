@@ -2,12 +2,14 @@
 
 (set-env!
   :dependencies #(into % '[[jarohen/nomad "0.7.0"]
-                           [defun "0.2.0-RC"]]))
+                           [defun "0.2.0-RC"]
+                           [io.aviso/pretty "0.1.17"]]))
 
 (require '[nomad :refer (defconfig)]
          '[clojure.java.io :as io]
          '[clojure.string :as str]
-         '[defun :refer (defun)])
+         '[defun :refer (defun)]
+         '[io.aviso.ansi :refer :all])
 
 (def CONFIG-PATH (str (System/getenv "HOME") "/.config/car/config.edn"))
 
@@ -99,7 +101,8 @@
       (-main task-name)))
   (["current"]
     (let [current-mileage (get-current-mileage!)]
-      (println "Current mileage:" current-mileage)))
+      (println (str (blue-bg (black "Current mileage")) \:)
+               (white-bg (bold-black current-mileage)))))
   (["current" n]
     (let [new-mileage (parse-number-or-fail n)]
       (set-current-mileage! new-mileage)
@@ -111,7 +114,7 @@
   (["last" (task :guard recorded-task?)]
     (let [{task-name :name, last-done :last-done} (find-task-by-query task)
           current-mileage (get-current-mileage!)]
-      (println (str task-name \:) "last done at" last-done)))
+      (println (str task-name \:) "last done at" (green last-done))))
   (["last" task] (-main :unknown task))
   (["last" (task :guard recorded-task?) n]
     (let [new-mileage (parse-number-or-fail n)]
@@ -122,9 +125,11 @@
           current-mileage (get-current-mileage!)
           task-due (next-due task current-mileage)]
       (set-current-mileage! current-mileage)
-      (if (overdue? task)
-        (println (str name \:) "last done at" (str last-done \,) "was due at" task-due)
-        (println (str name \:) "last done at" (str last-done \,) "due at" task-due))))
+      (println (str (cyan-bg (black name)) \:)
+               "last done at" (green (str last-done \,))
+               (if (overdue? task)
+                 (str (red "was due at") \space (bold-red task-due))
+                 (str "due at " (green task-due))))))
   ([(task :guard recorded-task?)]
     (-main "last" task))
   ([(task :guard recorded-task?) n]
