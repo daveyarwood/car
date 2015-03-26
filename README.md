@@ -79,3 +79,14 @@ To see when everything was last done:
     Current mileage: 101701
     Oil change: last done at 97500
     Rotate tires: last done at 96000
+
+### Adding a new task
+
+    $ car add 'Replace cabin air filter' interval=12000 last-done=90000
+    Added task Replace cabin air filter.
+
+    $ car
+    Current mileage: 101950
+    Oil change: last done at 97500, due at 105000
+    Rotate tires: last done at 96000, due at 102000
+    Replace cabin air filter: last done at 90000, due at 102000
