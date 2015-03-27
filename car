@@ -3,14 +3,13 @@
 
 (set-env!
   :dependencies #(into % '[[jarohen/nomad "0.7.0"]
-                           [defun "0.2.0-RC"]
-                           [io.aviso/pretty "0.1.17"]]))
+                           [defun "0.2.0-RC"]]))
 
 (require '[nomad :refer (defconfig)]
          '[clojure.java.io :as io]
          '[clojure.string :as str]
          '[defun :refer (defun)]
-         '[io.aviso.ansi :refer :all])
+         '[boot.from.io.aviso.ansi :refer :all])
 
 (def CONFIG-PATH (str (System/getenv "HOME") "/.config/car/config.edn"))
 
@@ -95,12 +94,12 @@
   (let [{task-name :name, id :id} (find-task-by-query task-query)]
     (spit CONFIG-PATH (assoc-in (config) [:tasks id :last-done] mileage))))
 
-(defn new-task!
+(defn add-task!
   "Adds a new task to the config, along with any values supplied in the format
    foo=bar or foo:bar.
 
    e.g.
-   (new-task! 'Replace cabin air filter' last-done=90000 interval=15000)"
+   (add-task! 'Replace cabin air filter' last-done=90000 interval=15000)"
   [task-name & configs]
   (let [task (apply merge {:name task-name}
                           (map (fn [cfg]
@@ -111,10 +110,16 @@
                                configs))]
     (spit CONFIG-PATH (update-in (config) [:tasks] conj task))))
 
+(defn delete-task!
+  [task-name]
+  (let [{:keys [id]} (find-task-by-query task-name)]
+    (spit CONFIG-PATH (update-in (config) [:tasks] #(concat (take id %)
+                                                            (drop (inc id) %))))))
+
 (defun -main
   ([]
     (-main "current")
-    (doseq [{task-name :name} (filter :interval (:tasks (config)))]
+    (doseq [{task-name :name} (:tasks (config))]
       (-main task-name)))
 
   (["current"]
@@ -133,16 +138,24 @@
   (["last" (task :guard recorded-task?)]
     (let [{task-name :name, last-done :last-done} (find-task-by-query task)
           current-mileage (get-current-mileage!)]
-      (println (str task-name \:) "last done at" (green last-done))))
+      (println (str (cyan-bg (black task-name)) \:)
+               "last done at" (green (str last-done)))))
   (["last" task] (-main :unknown task))
   (["last" (task :guard recorded-task?) n]
     (let [new-mileage (parse-number-or-fail n)]
       (update-last-done! task new-mileage)
       (-main "last" task)))
 
+  (["add"] (println "Add what?"))
   (["add" task-name & configs]
-    (apply new-task! task-name configs)
-    (println "Added task" (str task-name \.)))
+    (apply add-task! task-name configs)
+    (println (str task-name \:) (str (green "added") \.)))
+
+  (["delete"] (println "Delete what?"))
+  (["delete" task]
+    (let [{task-name :name} (find-task-by-query task)]
+      (delete-task! task)
+      (println (str task-name \:) (str (red "deleted") \.))))
 
   ([(task :guard regular-task?)]
     (let [{:keys [name interval last-done]} (find-task-by-query task)
@@ -150,7 +163,7 @@
           task-due (next-due task current-mileage)]
       (set-current-mileage! current-mileage)
       (println (str (cyan-bg (black name)) \:)
-               "last done at" (green (str last-done \,))
+               "last done at" (str (green last-done) \,)
                (if (overdue? task)
                  (str (red "was due at") \space (bold-red task-due))
                  (str "due at " (green task-due))))))
