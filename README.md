@@ -51,8 +51,8 @@ Oh, but wait. I'm past 102,000 and 105,000 now. It's been a really long time and
 
     $ car
     Current mileage: 260000
-    Oil change: last done at 97500, due at 262500      # fix me (issue #3)
-    Rotate tires: last done at 96000, due at 264000    # fix me (issue #3)
+    Oil change: last done at 97500, was due at 105000
+    Rotate tires: last done at 96000, was due at 102000
 
 Bingo bango bongo.
 
