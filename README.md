@@ -91,6 +91,14 @@ To see when everything was last done:
     Rotate tires: last done at 96000, due at 102000
     Replace cabin air filter: last done at 90000, due at 102000
 
+The following config options are available when adding a task:
+
+- **last-done**: the last known mile marker at which you did the task
+- **interval**: how many miles it will be before the task is due again
+- **due-at**: a specific mile marker in the future when the task will be due
+
+> Note: **due-at** is an alternative way to use tasks; it should be used on its own, without an **interval** or **last-done** value set. You should use **due-at** for tasks you only have to do once in a blue moon (say, at 100,000 miles), and **interval**/**last-done** for tasks you do more regularly.
+
 ### Deleting a task
 
     $ car delete replace-cabin-air-filter
