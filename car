@@ -113,8 +113,13 @@
 (defn delete-task!
   [task-name]
   (let [{:keys [id]} (find-task-by-query task-name)]
-    (spit CONFIG-PATH (update-in (config) [:tasks] #(concat (take id %)
-                                                            (drop (inc id) %))))))
+    (spit CONFIG-PATH (update-in (config) [:tasks] #(vec (concat (take id %)
+                                                                 (drop (inc id) %)))))))
+
+(defn rename-task!
+  [old-name new-name]
+  (let [{:keys [id]} (find-task-by-query old-name)]
+    (spit CONFIG-PATH (assoc-in (config) [:tasks id :name] new-name))))
 
 (defun -main
   ([]
@@ -156,6 +161,16 @@
     (let [{task-name :name} (find-task-by-query task)]
       (delete-task! task)
       (println (str task-name \:) (str (red "deleted") \.))))
+
+  (["rename"] (println "Rename what?"))
+  (["rename" task] (-main "rename" task nil))
+  (["rename" task new-name]
+    (let [{old-name :name} (find-task-by-query task)]
+      (if new-name
+        (do
+          (rename-task! old-name new-name)
+          (println (str old-name \:) (green "renamed") "to" (str new-name \.)))
+        (println "Rename" old-name "to what?"))))
 
   ([(task :guard regular-task?)]
     (let [{:keys [name interval last-done]} (find-task-by-query task)

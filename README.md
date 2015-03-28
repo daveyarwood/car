@@ -100,3 +100,8 @@ To see when everything was last done:
     Current mileage: 101950
     Oil change: last done at 97500, due at 105000
     Rotate tires: last done at 96000, due at 102000
+
+### Renaming a task
+
+    $ car rename oil-change 'Change oil'
+    Oil change: renamed to Change oil.
