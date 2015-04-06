@@ -31,7 +31,7 @@ To find out what value is stored as your current mileage at any time, do this:
 
 ### Checking when things are due
 
-Tell car the name of a task and it'll tell you when it's due next. Or, just type `car` on its lonesome and it'll tell you when each of the things are due next.
+Tell `car` the name of a task and it'll tell you when it's due next. Or, just type `car` on its lonesome and it'll tell you when each of the things are due next.
 
     $ car
     Current mileage: 100000
@@ -55,6 +55,11 @@ Oh, but wait. I'm past 102,000 and 105,000 now. It's been a really long time and
     Rotate tires: last done at 96000, was due at 102000
 
 Bingo bango bongo.
+
+If you're ever curious what the interval is between every time you need to do a task, you can do `car <name-of-the-task> interval`:
+
+    $ car 'oil change' interval
+    Oil change: due every 7500 miles.
 
 ### Checking/setting when you last did things
 
@@ -99,6 +104,33 @@ The following config options are available when adding a task:
 
 > Note: **due-at** is an alternative way to use tasks; it should be used on its own, without an **interval** or **last-done** value set. You should use **due-at** for tasks you only have to do once in a blue moon (say, at 100,000 miles), and **interval**/**last-done** for tasks you do more regularly.
 
+### Editing a task
+
+You can always set `last-done` via the method above (`car <name-of-task> <when-done>` or `car last <name-of-task> <when-done>`.
+
+You can also set `interval` and `due-at` like this:
+
+    $ car oil-change interval 6000
+    Oil change: due every 6000 miles.
+
+    $ car rotate-tires due-at 110000
+    Rotate tires: last done at 102000, due at 108000.
+    # note: we're getting unpredictable results here because 'due-at' is being set on a
+    # set on a task that also has values for 'interval' and 'last-done' (see note above)
+
+You can also get rid of values you don't want, if you'd like, by setting them to 0:
+
+    $ car 'oil change' interval 0
+    Deleted interval setting for Oil change.
+
+    $ car rotate-tires due-at 0
+    Deleted due-at setting for Rotate tires.
+
+### Renaming a task
+
+    $ car rename oil-change 'Change oil'
+    Oil change: renamed to Change oil.
+
 ### Deleting a task
 
     $ car delete replace-cabin-air-filter
@@ -109,7 +141,3 @@ The following config options are available when adding a task:
     Oil change: last done at 97500, due at 105000
     Rotate tires: last done at 96000, due at 102000
 
-### Renaming a task
-
-    $ car rename oil-change 'Change oil'
-    Oil change: renamed to Change oil.

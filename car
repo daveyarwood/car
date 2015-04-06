@@ -133,8 +133,8 @@
     (spit CONFIG-PATH (update-in (config) [:tasks] conj task))))
 
 (defn delete-task!
-  [task-name]
-  (let [{:keys [id]} (find-task-by-query task-name)]
+  [task-query]
+  (let [{:keys [id]} (find-task-by-query task-query)]
     (spit CONFIG-PATH (update-in (config) [:tasks] #(vec (concat (take id %)
                                                                  (drop (inc id) %)))))))
 
@@ -142,6 +142,27 @@
   [old-name new-name]
   (let [{:keys [id]} (find-task-by-query old-name)]
     (spit CONFIG-PATH (assoc-in (config) [:tasks id :name] new-name))))
+
+(defn set-task-interval!
+  "Sets interval for task. If interval is 0, removes the :interval key, making
+   it no longer a regular task."
+  [task-query interval]
+  (let [{:keys [id]} (find-task-by-query task-query)]
+    (spit CONFIG-PATH
+      (if (zero? interval)
+        (assoc-in (config) [:tasks id]
+          (dissoc (get-in (config) [:tasks id]) :interval))
+        (assoc-in (config) [:tasks id :interval] interval)))))
+
+(defn set-task-due-at!
+  "Sets mile marker when task is due. If due-at is 0, removes the :due-at key."
+  [task-query due-at]
+  (let [{:keys [id]} (find-task-by-query task-query)]
+    (spit CONFIG-PATH
+      (if (zero? due-at)
+        (assoc-in (config) [:tasks id]
+          (dissoc (get-in (config) [:tasks id]) :due-at))
+        (assoc-in (config) [:tasks id :due-at] due-at)))))
 
 (defun -main
   ([]
@@ -166,7 +187,7 @@
     (let [{task-name :name, last-done :last-done} (find-task-by-query task)
           current-mileage (get-current-mileage!)]
       (println (str (cyan-bg (black task-name)) \:)
-               "last done at" (green (str last-done)))))
+               "last done at" (str (green last-done) \.))))
   (["last" (task :guard upcoming-task?)]
     (let [{task-name :name} (find-task-by-query task)]
       (println (str (cyan-bg (black task-name)) \:)
@@ -191,7 +212,7 @@
   (["delete" task]
     (let [{task-name :name} (find-task-by-query task)]
       (delete-task! task)
-      (println (str task-name \:) (str (red "deleted") \.))))
+      (println (str (cyan-bg (black task-name)) \:) (str (red "deleted") \.))))
 
   (["rename"] (println "Rename what?"))
   (["rename" task] (-main "rename" task nil))
@@ -200,7 +221,7 @@
       (if new-name
         (do
           (rename-task! old-name new-name)
-          (println (str old-name \:) (green "renamed") "to" (str new-name \.)))
+          (println (str old-name \:) (green "renamed") "to" (str (cyan-bg (black new-name)) \.)))
         (println "Rename" old-name "to what?"))))
 
   ([(task :guard regular-task?)]
@@ -212,11 +233,34 @@
                "last done at" (str (green last-done) \,)
                (if (overdue? task)
                  (str (red "was due at") \space (bold-red task-due))
-                 (str "due at " (green task-due))))))
+                 (str "due at " (green task-due) \.)))))
+  ([(task :guard regular-task?) "interval"]
+    (let [{:keys [name interval]} (find-task-by-query task)]
+      (println (str (cyan-bg (black name)) \:)
+               "due every" (str (green interval)) "miles.")))
+
   ([(task :guard recorded-task?)]
     (-main "last" task))
+  ([(task :guard recorded-task?) "interval"]
+    (let [{task-name :name} (find-task-by-query task)]
+      (println "No" (yellow "interval") "set for" (str (cyan-bg (black task-name)) \.))))
   ([(task :guard recorded-task?) n]
     (-main "last" task n))
+  ([(task :guard recorded-task?) "interval" n]
+    (let [{task-name :name} (find-task-by-query task)
+          new-interval      (parse-number-or-fail n)]
+      (set-task-interval! task new-interval)
+      (if (zero? new-interval)
+        (println "Deleted" (yellow "interval") "setting for" (str (cyan-bg (black task-name)) \.))
+        (-main task "interval"))))
+  ([(task :guard recorded-task?) "due-at" n]
+    (let [{task-name :name} (find-task-by-query task)
+          new-due-at        (parse-number-or-fail n)]
+      (set-task-due-at! task new-due-at)
+      (if (zero? new-due-at)
+        (println "Deleted" (yellow "due-at") "setting for" (str (cyan-bg (black task-name)) \.))
+        (-main task))))
+
   ([(task :guard upcoming-task?)]
     (let [{task-name :name, due-at :due-at} (find-task-by-query task)
           current-mileage (get-current-mileage!)]
