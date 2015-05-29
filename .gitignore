@@ -1,2 +1,4 @@
 .nrepl*
 *~
+.DS_Store
+target/
